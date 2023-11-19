@@ -14,24 +14,30 @@
         Nilai sigmoid tidak boleh lebih dari 100.
       </div>
     </div>
-  </div>
-  <div class="table-container">
-    <table>
-      <thead>
-        <tr>
-          <th>Bulan</th>
-          <th>Plan</th>
-          <th>Actual</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="(record, index) in records" :key="index">
-          <td>{{ record.month }}</td>
-          <td>{{ record.plan }}</td>
-          <td>{{ record.actual }}</td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="dropdown">
+      <label for="selectedMonth">Pilih Bulan:</label>
+      <select id="selectedMonth" v-model="selectedMonth" @change="changeMonth">
+        <option v-for="(month, index) in months" :key="index" :value="index">{{ month }}</option>
+      </select>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Minggu</th>
+            <th>Plan</th>
+            <th>Actual</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(data, index) in records" :key="index">
+            <td>{{ data.week }}</td>
+            <td>{{ data.plan }}</td>
+            <td>{{ data.actual }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
@@ -44,11 +50,64 @@ export default {
     const inputValue = ref(null);
     const errorNotification = ref(false);
     const records = ref([]);
+    const selectedMonth = ref(0); // Default month is January
     let monthIndex = 0;
+    let chart; // Menyimpan instance chart untuk dapat dihapus dan dibuat lagi
+
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
 
     onMounted(() => {
+      createNewChart();
+
+      const addValue = () => {
+        const value = parseFloat(inputValue.value);
+        if (!isNaN(value) && monthIndex < 12) {
+          if (value > 100) {
+            errorNotification.value = true;
+          } else {
+            errorNotification.value = false;
+            if (chart.data.datasets[0].data[monthIndex] === null) {
+              chart.data.datasets[0].data[monthIndex] = value;
+            } else {
+              const weekIndex = monthIndex ; // Menghitung Minggu sesuai bulan
+              chart.data.datasets[1].data[monthIndex] = value;
+              records.value.push({
+                month: getMonthName(monthIndex),
+                week: `Minggu ${weekIndex + 1}`, // Minggu 1, 2, 3, 4
+                plan: chart.data.datasets[0].data[monthIndex],
+                actual: chart.data.datasets[1].data[monthIndex],
+              });
+              monthIndex++;
+            }
+            chart.update();
+            inputValue.value = '';
+          }
+        }
+      };
+
+      const getMonthName = (index) => {
+        return months[index];
+      };
+
+      const pushValueButton = document.getElementById('addValueButton');
+      pushValueButton.addEventListener('click', addValue);
+    });
+
+    const changeMonth = () => {
+      monthIndex = 0;
+      records.value = []; // Mengosongkan catatan saat ganti bulan
+      createNewChart(); // Membuat grafik baru saat berganti bulan
+    };
+
+    const createNewChart = () => {
+      if (chart) {
+        chart.destroy(); // Menghapus instance chart sebelumnya
+      }
+
       const chartData = {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'],
+        labels: Array.from({ length: 4 }, (_, i) => `Minggu ${i + 1}`), // Label untuk 4 minggu
         datasets: [
           {
             label: 'Plan',
@@ -68,7 +127,7 @@ export default {
       };
 
       const ctx = document.getElementById('myChart').getContext('2d');
-      const chart = new Chart(ctx, {
+      chart = new Chart(ctx, {
         type: 'line',
         data: chartData,
         options: {
@@ -91,17 +150,17 @@ export default {
             y: {
               title: {
                 display: true,
-                text: 'Progress'
+                text: 'Progress',
               },
               suggestedMin: 0,
               suggestedMax: 100,
               ticks: {
                 stepSize: 5,
                 beginAtZero: true,
-                callback: function(value) {
+                callback: function (value) {
                   return value + '%';
-                }
-              }
+                },
+              },
             },
           },
           elements: {
@@ -111,46 +170,15 @@ export default {
           },
         },
       });
+    };
 
-      const addValue = () => {
-        const value = parseFloat(inputValue.value);
-        if (!isNaN(value) && monthIndex < 12) {
-          if (value > 100) {
-            errorNotification.value = true;
-          } else {
-            errorNotification.value = false;
-            if (chart.data.datasets[0].data[monthIndex] === null) {
-              chart.data.datasets[0].data[monthIndex] = value;
-            } else {
-              chart.data.datasets[1].data[monthIndex] = value;
-              records.value.push({
-                month: getMonthName(monthIndex),
-                plan: chart.data.datasets[0].data[monthIndex],
-                actual: chart.data.datasets[1].data[monthIndex],
-              });
-              monthIndex++;
-            }
-            chart.update();
-            inputValue.value = '';
-          }
-        }
-      };
-
-      const getMonthName = (index) => {
-        const monthNames = [
-          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
-        ];
-        return monthNames[index];
-      };
-
-      const pushValueButton = document.getElementById('addValueButton');
-      pushValueButton.addEventListener('click', addValue);
-    });
-
-    return { inputValue, errorNotification, records };
+    return { inputValue, errorNotification, records, months, selectedMonth, changeMonth };
   },
 };
 </script>
+
+
+
 
 <style scoped>
 .container {
